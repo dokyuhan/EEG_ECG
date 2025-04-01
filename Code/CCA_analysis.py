@@ -167,7 +167,7 @@ def pool_subject_data(num_subjects, eeg_path_pattern, ecg_path_pattern, ecg_valu
     
     return all_subjects, pooled_eeg, pooled_ecg
 
-def run_cca_analysis(eeg_data, ecg_data, n_components=1):
+def run_cca_analysis(eeg_data, ecg_data, trial, n_components=1):
     """
     Run Canonical Correlation Analysis on the pooled data.
     
@@ -185,7 +185,7 @@ def run_cca_analysis(eeg_data, ecg_data, n_components=1):
     results : dict
         Dictionary with CCA results
     """
-    # Step 1: Standardize the data
+    # Standardize the data
     print("Standardizing data...")
     scaler_eeg = StandardScaler()
     scaler_ecg = StandardScaler()
@@ -193,12 +193,12 @@ def run_cca_analysis(eeg_data, ecg_data, n_components=1):
     eeg_scaled = scaler_eeg.fit_transform(eeg_data)
     ecg_scaled = scaler_ecg.fit_transform(ecg_data)
     
-    # Step 2: Apply CCA
+    # Apply CCA
     print("Applying CCA...")
     cca = CCA(n_components=n_components)
     eeg_c, ecg_c = cca.fit_transform(eeg_scaled, ecg_scaled)
     
-    # Step 3: Calculate correlation between canonical variates
+    # Calculate correlation between canonical variates
     corr = np.corrcoef(eeg_c.flatten(), ecg_c.flatten())[0, 1]
     print(f"Canonical correlation: {corr:.4f}")
     
@@ -206,16 +206,46 @@ def run_cca_analysis(eeg_data, ecg_data, n_components=1):
     eeg_weights = cca.x_weights_
     ecg_weights = cca.y_weights_
     
-    # Prepare results dictionary
+    # Calculate per-row contributions (weighted values)
+    print("Calculating per-row feature contributions using CCA weights...")
+    eeg_contributions = np.abs(eeg_scaled * eeg_weights.T)  # (n_samples, n_features)
+    ecg_contributions = np.abs(ecg_scaled * ecg_weights.T)  # (n_samples, 1)
+
+    # Save contributions to CSV
+    print("Saving weighted feature contributions...")
+    eeg_columns = [f'freq_{i+1}_weighted' for i in range(eeg_contributions.shape[1])]
+    df_contributions = pd.DataFrame(eeg_contributions, columns=eeg_columns)
+    df_contributions['ECG_weighted'] = ecg_contributions.flatten()
+    df_contributions.insert(0, 'Row', range(1, len(df_contributions) + 1))
+
+    df_contributions.to_csv('subject_results_csv/row_feature_contributions.csv', index=False)
+    print("Saved per-row weighted feature contributions to CSV.")
+
+    # Haufe transformation (interpretable pattern)
+    print("Applying Haufe transformation...")
+    cov_X = np.cov(eeg_scaled, rowvar=False)  # EEG covariance
+    haufe_activation = cov_X @ eeg_weights  # (features x components)
+
+    haufe_df = pd.DataFrame({
+        'frequency_band': [f'freq_{i+1}' for i in range(haufe_activation.shape[0])],
+        'activation_value': haufe_activation[:, 0]
+    })
+
+    # Sort by descending activation value
+    haufe_df_sorted = haufe_df.sort_values(by='activation_value', ascending=False)
+    haufe_df_sorted.to_csv(f'General_CCA_results/Frequency_importance/30sec_hann_lnrMSSD/haufe_results/trial_{trial}.csv', index=False)
+    print("Saved sorted Haufe activation pattern to CSV.")
+
     results = {
         'correlation': corr,
         'eeg_canonical': eeg_c,
         'ecg_canonical': ecg_c,
         'eeg_weights': eeg_weights,
         'ecg_weights': ecg_weights,
+        'haufe_activation': haufe_activation,
         'cca_model': cca
     }
-    
+
     return results
 
 # def run_cca_analysis_mvlearn(eeg_data, ecg_data, n_components=1):
@@ -316,12 +346,12 @@ def visualize_improved_cca_results(results):
     
     # Add subject annotation (example for one point)
     # Pick a point near the middle of the distribution for labeling
-    mid_idx = len(eeg_c) // 2
-    plt.annotate('Subj n', 
-                xy=(eeg_c[mid_idx], ecg_c[mid_idx]),
-                xytext=(eeg_c[mid_idx] + 0.05, ecg_c[mid_idx] - 0.3),
-                arrowprops=dict(arrowstyle='->', color='black', lw=1),
-                fontsize=12)
+    # mid_idx = len(eeg_c) // 2
+    # plt.annotate('Subj n', 
+    #             xy=(eeg_c[mid_idx], ecg_c[mid_idx]),
+    #             xytext=(eeg_c[mid_idx] + 0.05, ecg_c[mid_idx] - 0.3),
+    #             arrowprops=dict(arrowstyle='->', color='black', lw=1),
+    #             fontsize=12)
     
     # Set up clean axes
     ax = plt.gca()
@@ -343,7 +373,7 @@ def visualize_improved_cca_results(results):
     # Adjust layout and save
     plt.tight_layout()
     #plt.savefig('General_CCA_results/NEW_LN_RMSSD/trial_5.png', dpi=300)
-    #plt.savefig('General_CCA_results/30sec_Hann_LNRMSSD/trial_6.png', dpi=300)
+    #plt.savefig('General_CCA_results/30sec_Turkey_LNRMSSD/trial_15.png', dpi=300)
     plt.show()
 
 def main():
@@ -355,10 +385,11 @@ def main():
     # Configuration
     num_subjects = 9
     ecg_v = 'ln_rmssd'
+    trial = '15'
     # File path patterns - update these to match your file naming convention
-    eeg_path_pattern = "15sec_EEG_data_hann/trial13/eeg_subject{:d}.csv"
-    #ecg_path_pattern = "30sec_ECG_data/trial13/ecg_subject{:d}.csv"
-    ecg_path_pattern = "subject_trials/trial_13/full_ECG/ecg_subject{:d}.csv"
+    eeg_path_pattern = "30sec_EEG_data_hann/trial15/eeg_subject{:d}.csv"
+    ecg_path_pattern = "30sec_ECG_data/trial15/ecg_subject{:d}.csv"
+    #ecg_path_pattern = "subject_trials/trial_1/full_ECG/ecg_subject{:d}.csv"
     
     # Pool data from all subjects
     print("\nPooling data from all subjects...")
@@ -380,7 +411,7 @@ def main():
     
     # Run general CCA analysis
     print("\nRunning CCA analysis on pooled data...")
-    results = run_cca_analysis(pooled_eeg, pooled_ecg)
+    results = run_cca_analysis(pooled_eeg, pooled_ecg, trial)
 
     # Run bandwise CCA analysis
     # eeg_columns = [f'freq_{i+1}' for i in range(pooled_eeg.shape[1])]
@@ -394,8 +425,8 @@ def main():
 
     # Visualize results
     print("\nVisualizing results...")
-    visualize_cca_results(results)
-    visualize_improved_cca_results(results)
+    # visualize_cca_results(results)
+    # visualize_improved_cca_results(results)
     
     # Save individual subject data for potential future analysis
     # print("\nStep 4: Saving subject data dictionary...")
@@ -410,47 +441,47 @@ def main():
     # print("\nPooled CCA analysis complete!")
 
     # Save CCA results to CSV files
-    # print("\nSaving CCA results to CSV files...")
-    # try:
-    #     # Create a directory to store results
-    #     import os
-    #     os.makedirs('subject_results_csv', exist_ok=True)
-        
-    #     # Save canonical correlation value
-    #     # Save canonical variates (transformed data)
-    #     canonical_df = pd.DataFrame({
-    #         'eeg_canonical': results['eeg_canonical'].flatten(),
-    #         'ecg_canonical': results['ecg_canonical'].flatten()
-    #     })
-    #     canonical_df.to_csv('subject_results_csv/canonical_variates.csv', index=False)
+    print("\nSaving CCA results to CSV files...")
 
+    try:
+        # Create a directory to store results
+        import os
+        os.makedirs('subject_results_csv', exist_ok=True)
         
-    #     # Save EEG weights (importance of each frequency band)
-    #     eeg_weights_df = pd.DataFrame({
-    #         'frequency_band': [f'freq_{i+1}' for i in range(len(results['eeg_weights']))],
-    #         'weight': results['eeg_weights'][:, 0]
-    #     })
-    #     eeg_weights_df.to_csv('subject_results_csv/eeg_weights.csv', index=False)
-        
-    #     # Save ECG weights
-    #     ecg_weights_df = pd.DataFrame({
-    #         'measure': ['ln_rmssd'],
-    #         'weight': results['ecg_weights'][:, 0]
-    #     })
-    #     ecg_weights_df.to_csv('subject_results_csv/ecg_weights.csv', index=False)
-        
-    #     # Save canonical variates (transformed data)
-    #     # canonical_df = pd.DataFrame({
-    #     #     'eeg_canonical': results['eeg_canonical'].flatten(),
-    #     #     'ecg_canonical': results['ecg_canonical'].flatten()
-    #     # })
-    #     # canonical_df.to_csv('subject_results_csv/canonical_variates.csv', index=False)
-        
-    #     print(f"CCA results saved to 'subject_results_csv/' directory")
-    # except Exception as e:
-    #     print(f"Error saving CCA results: {e}")
+        # Save canonical variates (transformed data)
+        # canonical_df = pd.DataFrame({
+        #     'eeg_canonical': results['eeg_canonical'].flatten(),
+        #     'ecg_canonical': results['ecg_canonical'].flatten()
+        # })
+        # canonical_df.to_csv('General_CCA_results/CCA_value/30sec_Hann/trial_1.csv', index=False)
 
-    # print("\nPooled CCA analysis complete!")
+        # save canonical correlation value
+        corr_df = pd.DataFrame({
+            'trial': [trial],  # Adjust this if running for other trials
+            'canonical_correlation': [results['correlation']]
+        })
+        corr_df.to_csv('subject_results_csv/canonical_correlation.csv', index=False)
+        print("Canonical correlation value saved.")
+        
+        # Save EEG weights (importance of each frequency band)
+        eeg_weights_df = pd.DataFrame({
+            'frequency_band': [f'freq_{i+1}' for i in range(len(results['eeg_weights']))],
+            'weight': results['eeg_weights'][:, 0]
+        })
+        eeg_weights_df.to_csv('subject_results_csv/eeg_weights.csv', index=False)
+        
+        # Save ECG weights
+        ecg_weights_df = pd.DataFrame({
+            'measure': ['ln_rmssd'],
+            'weight': results['ecg_weights'][:, 0]
+        })
+        ecg_weights_df.to_csv('subject_results_csv/ecg_weights.csv', index=False)
+        
+        print(f"CCA results saved to 'subject_results_csv/' directory")
+    except Exception as e:
+        print(f"Error saving CCA results: {e}")
+
+    print("\nPooled CCA analysis complete!")
 
 if __name__ == "__main__":
     main()
