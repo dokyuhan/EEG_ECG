@@ -6,7 +6,6 @@ import glob
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
-from Bandwise_CCA_analysis import run_bandwise_cca
 from sklearn.cross_decomposition import CCA
 
 def load_subject_data(subject_id, eeg_path_pattern, ecg_path_pattern, ecg_value):
@@ -233,7 +232,7 @@ def run_cca_analysis(eeg_data, ecg_data, trial, n_components=1):
     # Sort by descending activation value
     haufe_df_sorted = haufe_df.sort_values(by='activation_value', ascending=False)
     # Path to save Haufe results
-    haufe_df_sorted.to_csv('subject_results_csv/haufe_results.csv', index=False)
+    haufe_df_sorted.to_csv(f'subject_results/haufe_results/trial_{trial}.csv', index=False)
     print("Saved sorted Haufe activation pattern to CSV.")
 
     results = {
@@ -339,8 +338,7 @@ def visualize_improved_cca_results(results):
     
     # Adjust layout and save
     plt.tight_layout()
-    #plt.savefig('General_CCA_results/NEW_LN_RMSSD/trial_5.png', dpi=300)
-    #plt.savefig('General_CCA_results/30sec_Turkey_LNRMSSD/trial_15.png', dpi=300)
+    #plt.savefig('pooled_cca_improved_correlation.png', dpi=300)
     plt.show()
 
 def main():
@@ -354,13 +352,16 @@ def main():
     # ECG value to analyse
     ecg_v = 'rmssd'
     # Trial number
-    trial = '15'
+    trial = '1'
     # File path patterns - update these to match your file naming convention
     # The data should be matching the same size as both EEG and ECG data
     eeg_path_pattern = "{Path to the EEG .csv files}"
     ecg_path_pattern = "{Path to the ECG .csv files}"
     
-    # Pool data from all subjects
+    # Create a directory to store results
+    os.makedirs('subject_results_csv', exist_ok=True)# Create a directory to store results
+    os.makedirs('subject_results_csv/haufe_results', exist_ok=True)
+
     print("\nPooling data from all subjects...")
     try:
         all_subjects, pooled_eeg, pooled_ecg = pool_subject_data(
@@ -381,16 +382,6 @@ def main():
     # Run general CCA analysis
     print("\nRunning CCA analysis on pooled data...")
     results = run_cca_analysis(pooled_eeg, pooled_ecg, trial)
-
-    # Run bandwise CCA analysis
-    # eeg_columns = [f'freq_{i+1}' for i in range(pooled_eeg.shape[1])]
-    # pooled_eeg = pd.DataFrame(pooled_eeg, columns=eeg_columns)
-    # pooled_ecg = pd.DataFrame(pooled_ecg, columns=[ecg_v])
-    # results = run_bandwise_cca(
-    #     pooled_eeg, pooled_ecg, eeg_columns,
-    #     ecg_value_label=ecg_v,
-    #     save_dir='separated_bands_cca_results_csv'
-    # )
 
     # Visualize results
     print("\nVisualizing results...")
@@ -413,10 +404,6 @@ def main():
     print("\nSaving CCA results to CSV files...")
 
     try:
-        # Create a directory to store results
-        import os
-        os.makedirs('subject_results_csv', exist_ok=True)
-        
         # Save canonical variates (transformed data)
         # canonical_df = pd.DataFrame({
         #     'eeg_canonical': results['eeg_canonical'].flatten(),

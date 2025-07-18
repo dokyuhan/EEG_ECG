@@ -356,7 +356,7 @@ def main():
         
         # Save sorted weights
         sorted_weights_df = eeg_weights_df.sort_values('abs_weight', ascending=False).reset_index(drop=True)
-        sorted_weights_df.to_csv('General_CCA_results/Individual_EEG_weights/trial_1/subject_9.csv', index=False)
+        sorted_weights_df.to_csv('Path to save csv', index=False)
         
         # Save ECG weights
         ecg_weights_df = pd.DataFrame({
