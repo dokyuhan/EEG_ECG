@@ -99,8 +99,8 @@ def visualize_in_terminal(band_df, max_width=50, weight_type='normalized'):
     print("\n" + "-" * terminal_width)
 
 def main():
-    #csv_path = 'General_CCA_results/Frequency_importance/LN_RMSSD/trial_5.csv'
-    csv_path = 'General_CCA_results/Frequency_importance/30sec_hann_lnrMSSD/trial_15.csv'
+
+    csv_path = '{Path to your analyzed CCA EEG weights CSV file}'
     
     try:
         band_df = compute_band_weights(csv_path)    

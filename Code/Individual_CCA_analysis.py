@@ -310,10 +310,9 @@ def main():
     subject_id = 1  # Set the subject ID you want to analyze
     
     # File path patterns - update these to match your file naming convention
-    # eeg_path_pattern = "subject_trials/trial_12/full_EEG/eeg_subject9.csv"
-    # ecg_path_pattern = "subject_trials/trial_12/full_ECG/ecg_subject9.csv"
-    eeg_path_pattern = "subject_trials/trial_1/full_EEG/eeg_subject9.csv"
-    ecg_path_pattern = "subject_trials/trial_1/full_ECG/ecg_subject9.csv"
+    # example: eeg_path_pattern = "path/to/eeg_subject_01.csv"
+    eeg_path_pattern = "{Path to the individual EEG .csv files}"
+    ecg_path_pattern = "{Path to the individual ECG .csv files}"
     
     # Directory for saving results
     results_dir = f'subject_{subject_id}_results_csv'

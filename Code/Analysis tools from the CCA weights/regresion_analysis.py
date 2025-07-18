@@ -50,7 +50,6 @@ def plot_band_r2(df):
     plt.xlabel("R-Squared")
     plt.ylabel("EEG Band")
     plt.tight_layout()
-    plt.savefig('General_CCA_results/Regresion_EEG_ECG_weights/table view/trial_15.png', dpi=300)
     plt.show()
 
 def main():

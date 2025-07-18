@@ -7,7 +7,6 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from Bandwise_CCA_analysis import run_bandwise_cca
-#from mvlearn.embed import CCA
 from sklearn.cross_decomposition import CCA
 
 def load_subject_data(subject_id, eeg_path_pattern, ecg_path_pattern, ecg_value):
@@ -233,7 +232,8 @@ def run_cca_analysis(eeg_data, ecg_data, trial, n_components=1):
 
     # Sort by descending activation value
     haufe_df_sorted = haufe_df.sort_values(by='activation_value', ascending=False)
-    haufe_df_sorted.to_csv(f'General_CCA_results/Frequency_importance/30sec_hann_lnrMSSD/haufe_results/trial_{trial}.csv', index=False)
+    # Path to save Haufe results
+    haufe_df_sorted.to_csv('subject_results_csv/haufe_results.csv', index=False)
     print("Saved sorted Haufe activation pattern to CSV.")
 
     results = {
@@ -247,39 +247,6 @@ def run_cca_analysis(eeg_data, ecg_data, trial, n_components=1):
     }
 
     return results
-
-# def run_cca_analysis_mvlearn(eeg_data, ecg_data, n_components=1):
-#     """
-#     Run Canonical Correlation Analysis using mvlearn.
-#     """
-#     print("Standardizing data...")
-#     scaler_eeg = StandardScaler()
-#     scaler_ecg = StandardScaler()
-    
-#     eeg_scaled = scaler_eeg.fit_transform(eeg_data)
-#     ecg_scaled = scaler_ecg.fit_transform(ecg_data)
-
-#     print("Applying CCA (mvlearn)...")
-#     cca = CCA(n_components=n_components)
-#     cca.fit([eeg_scaled, ecg_scaled])
-    
-#     eeg_c, ecg_c = cca.transform([eeg_scaled, ecg_scaled])
-    
-#     # Calculate canonical correlation manually
-#     corr = np.corrcoef(eeg_c.flatten(), ecg_c.flatten())[0, 1]
-#     print(f"Canonical correlation: {corr:.4f}")
-    
-#     # mvlearn does not directly expose weights like sklearn
-#     # so you can't easily get `cca.x_weights_`, but you can still use the canonical components.
-
-#     results = {
-#         'correlation': corr,
-#         'eeg_canonical': eeg_c,
-#         'ecg_canonical': ecg_c,
-#         'cca_model': cca
-#     }
-
-#     return results
 
 def visualize_cca_results(results):
     """
@@ -384,12 +351,14 @@ def main():
     
     # Configuration
     num_subjects = 9
-    ecg_v = 'ln_rmssd'
+    # ECG value to analyse
+    ecg_v = 'rmssd'
+    # Trial number
     trial = '15'
     # File path patterns - update these to match your file naming convention
-    eeg_path_pattern = "30sec_EEG_data_hann/trial15/eeg_subject{:d}.csv"
-    ecg_path_pattern = "30sec_ECG_data/trial15/ecg_subject{:d}.csv"
-    #ecg_path_pattern = "subject_trials/trial_1/full_ECG/ecg_subject{:d}.csv"
+    # The data should be matching the same size as both EEG and ECG data
+    eeg_path_pattern = "{Path to the EEG .csv files}"
+    ecg_path_pattern = "{Path to the ECG .csv files}"
     
     # Pool data from all subjects
     print("\nPooling data from all subjects...")
@@ -453,7 +422,7 @@ def main():
         #     'eeg_canonical': results['eeg_canonical'].flatten(),
         #     'ecg_canonical': results['ecg_canonical'].flatten()
         # })
-        # canonical_df.to_csv('General_CCA_results/CCA_value/30sec_Hann/trial_1.csv', index=False)
+        # canonical_df.to_csv('', index=False)
 
         # save canonical correlation value
         corr_df = pd.DataFrame({
@@ -472,7 +441,7 @@ def main():
         
         # Save ECG weights
         ecg_weights_df = pd.DataFrame({
-            'measure': ['ln_rmssd'],
+            'measure': ['rmssd'],
             'weight': results['ecg_weights'][:, 0]
         })
         ecg_weights_df.to_csv('subject_results_csv/ecg_weights.csv', index=False)

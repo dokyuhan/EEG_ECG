@@ -3,7 +3,6 @@ import heartpy as hp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
 from pathlib import Path
 
 def create_folder_structure(base_path):
@@ -109,13 +108,13 @@ def analyze_ecg(file_path, sampling_rate):
             plt.legend()
             
             # Plot 3: SDNN
-            plt.subplot(3,1,3)
-            plt.plot(results_df['start_time'], results_df['sdnn'], 'go-', label='SDNN')
-            plt.title('SDNN Across Signal Segments')
-            plt.xlabel('Start Time (seconds)')
-            plt.ylabel('SDNN (ms)')
-            plt.grid(True)
-            plt.legend()
+            # plt.subplot(3,1,3)
+            # plt.plot(results_df['start_time'], results_df['sdnn'], 'go-', label='SDNN')
+            # plt.title('SDNN Across Signal Segments')
+            # plt.xlabel('Start Time (seconds)')
+            # plt.ylabel('SDNN (ms)')
+            # plt.grid(True)
+            # plt.legend()
             
             plt.tight_layout()
             plt.show()
@@ -166,7 +165,8 @@ def analyze_ecg(file_path, sampling_rate):
         return pd.DataFrame(), {}, {}
 
 if __name__ == "__main__":
-    file_path = "Colemak_Data/subject06.mat"
+    # Individual file for the process ex."subject_1.mat"
+    file_path = "{Path to your ECG .mat file}"
     
     print(f"Starting analysis with file: {file_path}")
     print(f"Sampling rate: 256 Hz")

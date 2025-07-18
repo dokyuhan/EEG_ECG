@@ -48,7 +48,7 @@ if __name__ == "__main__":
     top_bins = analyze_stability_from_csv(
         csv_path="subject_results_csv/row_feature_contributions.csv",
         top_n=10,
-        save_summary_path="General_CCA_results/Stability bands/trial_15.csv"
+        save_summary_path="{Output file name for top stable bins summary}" 
     )
     
     print("\nTop Stable EEG Bins:")

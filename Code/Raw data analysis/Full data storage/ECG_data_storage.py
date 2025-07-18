@@ -1,9 +1,7 @@
 import scipy.io
 import heartpy as hp
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
 from pathlib import Path
 import traceback
 
@@ -151,7 +149,7 @@ def analyze_ecg(file_path, sampling_rate, cell_index, subject_id):
         
         # Process the signal using HeartPy's segmentwise processing
         print("\nProcessing signal with HeartPy...")
-        segment_width = 30
+        segment_width = 15 # seconds
         segment_overlap = 0.5
         
         # Validate ECG data before processing
@@ -290,8 +288,9 @@ def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_sub
 
 if __name__ == "__main__":
     # Set your paths here
-    base_directory = "/Users/dokyuhan/Documents/ECG_EEG/Colemak_Data"
-    output_directory = "/Users/dokyuhan/Documents/ECG_EEG/30sec_ECG_data"
+    # The base directory should contain files named like "subject01.mat", "subject02.mat", etc.
+    base_directory = "{Path to all the ECG .mat files}"
+    output_directory = "{Path to your output directory}"
     
     # Process all subjects
     process_all_subjects(

@@ -48,7 +48,7 @@ def sort_cca_weights(weights_file, plot=True):
             print(f"{i+1:<6}{row['frequency_band']:<20}{row['weight']:<15.6f}{row['abs_weight']:<15.6f}")
         
         # Save the sorted weights to a new CSV
-        output_file = 'General_CCA_results/Frequency_importance/30sec_hann_lnrMSSD/trial_6.csv'
+        output_file = '{Output file name}'
         sorted_weights_df.to_csv(output_file, index=False)
         print(f"\nSorted weights saved to '{output_file}'")
         

@@ -188,8 +188,9 @@ def main(matlab_path, output_dir, fs):
 
 if __name__ == "__main__":
     # Parameters
-    matlab_path = "Colemak_Data/subject01.mat"
-    output_dir = "EEG_frequency_bands"
+    # Individual file for the process ex."subject_1.mat"
+    matlab_path = "{Path to your EEG .mat file}"
+    output_dir = "{Path to your output directory}"
     fs = 256  # Sampling frequency (Hz)
     
     # Run the extraction

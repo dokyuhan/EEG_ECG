@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 from scipy import signal
-import matplotlib.pyplot as plt
-import os
 from pathlib import Path
 import traceback
 
@@ -133,7 +131,8 @@ def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_f
                 nperseg=nperseg,
                 detrend='constant',
                 window = 'hann',
-                #window=('tukey', 0.25)
+                # Different window types can be tested here
+                # window=('tukey', 0.25)
             )
             
             # Store frequency array on first iteration
@@ -198,7 +197,7 @@ def process_subject_trial(file_path, subject_id, trial, fs):
         freq_df = extract_individual_frequencies(
             eeg_data=eeg_data,
             fs=fs,
-            window_duration=30,  # 15 seconds window
+            window_duration=15,  # seconds
             overlap=0.5,         # 50% overlap
             max_freq=50          # Maximum frequency to include
         )
@@ -273,9 +272,9 @@ def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_sub
 
 def main():
     # Set your paths here
-    base_directory = "/Users/dokyuhan/Documents/ECG_EEG/Colemak_Data"
-    output_directory = "/Users/dokyuhan/Documents/ECG_EEG/30sec_EEG_data_hann"
-    
+    # The base directory should contain files named like "subject01.mat", "subject02.mat", etc.
+    base_directory = "{Path to all the EEG .mat files}"
+    output_directory = "{Path to your output directory}"
     # Process all subjects
     process_all_subjects(
         base_dir=base_directory,
