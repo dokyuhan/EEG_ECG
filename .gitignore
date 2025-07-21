@@ -13,3 +13,8 @@ Thumbs.db
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Data directories
+Colemak_Data
+30sec_ECG_data
+30sec_EEG_data_hann
