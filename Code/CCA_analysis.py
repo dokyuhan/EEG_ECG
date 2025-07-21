@@ -234,7 +234,7 @@ def run_cca_analysis(eeg_data, ecg_data, trial, n_components=1):
     # Sort by descending activation value
     haufe_df_sorted = haufe_df.sort_values(by='activation_value', ascending=False)
     # Path to save Haufe results
-    haufe_df_sorted.to_csv(f'subject_results/haufe_results/trial_{trial}.csv', index=False)
+    haufe_df_sorted.to_csv(f'subject_results_csv/haufe_results/trial_{trial}.csv', index=False)
     print("Saved sorted Haufe activation pattern to CSV.")
 
     results = {
@@ -361,10 +361,10 @@ def main():
     # File path patterns - update these to match your file naming convention
 
     # The data should be matching the same size as both EEG and ECG data
-    #eeg_path_pattern = "30sec_EEG_data_hann/trial15/eeg_subject{:d}.csv"
-    #ecg_path_pattern = "30sec_ECG_data/trial15/ecg_subject{:d}.csv"
-    eeg_path_pattern = "{Path to the EEG .csv files}"
-    ecg_path_pattern = "{Path to the ECG .csv files}"
+    eeg_path_pattern = "30sec_EEG_data_hann/trial15/eeg_subject{:02d}.csv"
+    ecg_path_pattern = "30sec_ECG_data/trial15/ecg_subject{:02d}.csv"
+    #eeg_path_pattern = "{Path to the EEG .csv files}"
+    #ecg_path_pattern = "{Path to the ECG .csv files}"
 
     # Create a directory to store results
     os.makedirs('subject_results_csv', exist_ok=True)# Create a directory to store results
