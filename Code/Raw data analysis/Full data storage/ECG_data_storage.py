@@ -1,11 +1,15 @@
-import scipy.io
-import heartpy as hp
-import numpy as np
-import pandas as pd
 import os
 import sys
-from pathlib import Path
+import numpy as np
+import pandas as pd
+import heartpy as hp
 import traceback
+from pathlib import Path
+
+from common import load_mat, create_folder_structure
+
+#from joblib import Parallel, delayed
+    #results = Parallel(n_jobs=num_threads)(delayed(sum_primes_segment)(start, end) for start, end in zip(starts, ends))
 
 # GEF: Should create another file with the common functions used in EEG ECG.
 # This will avoid code duplication and make the codebase simpler
@@ -19,14 +23,6 @@ import traceback
 # Can launch a thread per subject. This way each thread only deals with one input file
 # We need to verify if memory will be enough to load all files simultaneously
 # If not, we can process all users sequentially, but processing the trials in parallel
-
-def create_folder_structure(base_path):
-    """
-    Create the folder structure for storing results
-    """
-    base_path = Path(base_path)
-    base_path.mkdir(exist_ok=True)
-    return base_path
 
 
 def validate_ecg_data(ecg_data):
@@ -142,17 +138,13 @@ def interpolate_missing_values(df, features):
     return result_df
 
 
-def analyze_ecg(file_path, sampling_rate, cell_index, subject_id):
+def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
     """
     Analyze ECG data using HeartPy library
     """
     try:
         print(f"Processing {subject_id}, trial {cell_index+1}...")
 
-        # GEF: Data should be loaded only once per subject
-        # Load the .mat file
-        print("Loading .mat file...")
-        mat_data = scipy.io.loadmat(file_path)
         ecg_data = mat_data['Cn'][cell_index][0].flatten()
 
         # Display signal information
@@ -279,11 +271,13 @@ def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_sub
             print(f"File not found: {file_path}")
             continue
 
+        mat_data = load_mat(file_path)
+
         # Process each trial for the subject
         for trial in range(trials_per_subject):
             trial_num = trial + 1
             results_df, success, subj_id = analyze_ecg(
-                file_path=str(file_path),
+                mat_data=mat_data,
                 sampling_rate=256,
                 cell_index=trial,
                 subject_id=subject_id

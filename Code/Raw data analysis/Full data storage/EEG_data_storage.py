@@ -1,33 +1,21 @@
-import numpy as np
-import pandas as pd
-from scipy.io import loadmat
-from scipy import signal
 import os
 import sys
-from pathlib import Path
+import numpy as np
+import pandas as pd
+from scipy import signal
 import traceback
+from pathlib import Path
+
+from common import load_mat, create_folder_structure
 
 # Define EEG channel names
 EEG_CHANNELS = ['F3', 'Fz', 'F4', 'C3', 'Cz', 'C4', 'P3', 'POz', 'P4']
 
 
-def create_folder_structure(base_path):
-    """
-    Create the folder structure for storing results
-    """
-    base_path = Path(base_path)
-    base_path.mkdir(exist_ok=True)
-    return base_path
-
-
-def load_eeg_data(matlab_path, cell_index):
+def load_eeg_data(mat_data, cell_index):
     """
     Load EEG data from MATLAB file for a specific trial (cell index).
     """
-    # GEF: Loading the file should be done only once per subject
-    # Load EEG data from MATLAB file
-    mat_data = loadmat(matlab_path)
-
     # Extract EEG channels (columns 1-9, which are indices 1-9 in Cn[cell_index])
     eeg_data = []
     for i in range(1, 10):  # Channels 1-9 (indices 1-9)
@@ -190,7 +178,7 @@ def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_f
     return freq_df
 
 
-def process_subject_trial(file_path, subject_id, trial, fs):
+def process_subject_trial(mat_data, subject_id, trial, fs):
     """
     Process a single subject/trial and return its frequency data
     """
@@ -198,7 +186,7 @@ def process_subject_trial(file_path, subject_id, trial, fs):
         print(f"Processing {subject_id}, trial {trial+1}...")
 
         # Load EEG data for this trial
-        eeg_data = load_eeg_data(str(file_path), trial)
+        eeg_data = load_eeg_data(mat_data, trial)
 
         # Skip if data is invalid
         if not validate_eeg_data(eeg_data):
@@ -249,11 +237,13 @@ def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_sub
             print(f"File not found: {file_path}")
             continue
 
+        mat_data = load_mat(file_path)
+
         # Process each trial for the subject
         for trial in range(trials_per_subject):
             trial_num = trial + 1
             freq_df, success, subj_id = process_subject_trial(
-                file_path=file_path,
+                mat_data=mat_data,
                 subject_id=subject_id,
                 trial=trial,
                 fs=fs
