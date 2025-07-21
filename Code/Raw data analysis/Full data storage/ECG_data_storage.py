@@ -234,12 +234,12 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
                 columns = ['segment', 'start_time', 'rmssd', 'bpm', 'sdnn', 'pnn50', 'sd1', 'sd2', 'breathingrate', 'ln_rmssd']
                 results_df = pd.DataFrame(columns=columns)
 
-        return results_df, True, subject_id  # Return the subject_id as a separate value
+        return results_df, True
 
     except Exception as e:
         print(f"Critical error processing trial {cell_index + 1} for {subject_id}: {str(e)}")
         traceback.print_exc()
-        return None, False, subject_id  # Return the subject_id even in case of failure
+        return None, False
 
 
 def process_all_subjects(base_dir, num_subjects, trials_per_subject):
@@ -265,23 +265,26 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject):
 
         # Process each trial for the subject
         for trial in range(trials_per_subject):
-            trial_num = trial + 1
-            results_df, success, subj_id = analyze_ecg(
-                mat_data=mat_data,
-                sampling_rate=256,
-                cell_index=trial,
-                subject_id=subject_id
-            )
-
-            if success and results_df is not None and not results_df.empty:
-                # Append this subject's data to the appropriate trial list
-                trial_data[trial_num].append(results_df)
-                subject_ids[trial_num].append(subj_id)  # Store the subject ID
-            else:
-                print(f"Failed to process trial {trial_num} for {subject_id}")
+            update_ecg_trial_data(mat_data, subject_id, trial, trial_data, subject_ids)
 
     return trial_data, subject_ids
 
+
+def update_ecg_trial_data(mat_data, subject_id, trial, trial_data, subject_ids):
+    trial_num = trial + 1
+    results_df, success = analyze_ecg(
+        mat_data=mat_data,
+        sampling_rate=256,
+        cell_index=trial,
+        subject_id=subject_id
+    )
+
+    if success and results_df is not None and not results_df.empty:
+        # Append this subject's data to the appropriate trial list
+        trial_data[trial_num].append(results_df)
+        subject_ids[trial_num].append(subject_id)  # Store the subject ID
+    else:
+        print(f"Failed to process trial {trial_num} for {subject_id}")
 
 
 def main():

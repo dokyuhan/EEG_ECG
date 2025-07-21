@@ -181,7 +181,7 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
         # Skip if data is invalid
         if not validate_mat_data(eeg_data):
             print(f"Invalid EEG data for {subject_id}, trial {trial+1}, skipping")
-            return None, False, subject_id
+            return None, False
 
         # Extract individual frequency data
         freq_df = extract_individual_frequencies(
@@ -194,15 +194,15 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
 
         if not freq_df.empty:
             print(f"Successfully processed {subject_id}, trial {trial+1}")
-            return freq_df, True, subject_id
+            return freq_df, True
         else:
             print(f"No valid frequency data for {subject_id}, trial {trial+1}, skipping")
-            return None, False, subject_id
+            return None, False
 
     except Exception as e:
         print(f"Error processing {subject_id}, trial {trial+1}: {str(e)}")
         traceback.print_exc()
-        return None, False, subject_id
+        return None, False
 
 
 def process_all_subjects(base_dir, num_subjects, trials_per_subject, fs):
@@ -229,22 +229,29 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject, fs):
 
         # Process each trial for the subject
         for trial in range(trials_per_subject):
-            trial_num = trial + 1
-            freq_df, success, subj_id = process_subject_trial(
-                mat_data=mat_data,
-                subject_id=subject_id,
-                trial=trial,
-                fs=fs
-            )
-
-            if success and freq_df is not None and not freq_df.empty:
-                # Append this subject's data to the appropriate trial list
-                trial_data[trial_num].append(freq_df)
-                subject_ids[trial_num].append(subj_id)
-            else:
-                print(f"Failed to process trial {trial_num} for {subject_id}")
+            update_eeg_trial_data(mat_data, subject_id, trial, fs, trial_data, subject_ids)
 
     return trial_data, subject_ids
+
+
+def update_eeg_trial_data(mat_data, subject_id, trial, fs, trial_data, subject_ids):
+    """
+    Do the processing for a single trial of a user
+    """
+    trial_num = trial + 1
+    freq_df, success = process_subject_trial(
+        mat_data=mat_data,
+        subject_id=subject_id,
+        trial=trial,
+        fs=fs
+    )
+
+    if success and freq_df is not None and not freq_df.empty:
+        # Append this subject's data to the appropriate trial list
+        trial_data[trial_num].append(freq_df)
+        subject_ids[trial_num].append(subject_id)
+    else:
+        print(f"Failed to process trial {trial_num} for {subject_id}")
 
 
 def main():
