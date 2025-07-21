@@ -6,7 +6,16 @@ import heartpy as hp
 import traceback
 from pathlib import Path
 
-from common import load_mat, create_folder_structure
+from common import (get_cli_arguments,
+                    load_mat,
+                    save_data_to_csv,
+                    validate_mat_data)
+
+
+# Default values for the input and output directories
+INPUT_DIRECTORY = "../../Colemak_Data"
+OUTPUT_DIRECTORY = "../../30sec_ECG_data"
+
 
 #from joblib import Parallel, delayed
     #results = Parallel(n_jobs=num_threads)(delayed(sum_primes_segment)(start, end) for start, end in zip(starts, ends))
@@ -23,24 +32,6 @@ from common import load_mat, create_folder_structure
 # Can launch a thread per subject. This way each thread only deals with one input file
 # We need to verify if memory will be enough to load all files simultaneously
 # If not, we can process all users sequentially, but processing the trials in parallel
-
-
-def validate_ecg_data(ecg_data):
-    """
-    Validate ECG data and return whether it's valid for processing
-    """
-    if ecg_data is None or len(ecg_data) == 0:
-        return False
-
-    # Check if data contains only zeros or if it's too short
-    if np.all(ecg_data == 0) or len(ecg_data) < 256:
-        return False
-
-    # Check if data contains any infinite values
-    if np.any(np.isinf(ecg_data)):
-        return False
-
-    return True
 
 
 def interpolate_missing_values(df, features):
@@ -170,7 +161,7 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
         #      avoid:  except Exception
 
         # Validate ECG data before processing
-        if not validate_ecg_data(ecg_data):
+        if not validate_mat_data(ecg_data):
             print(f"Invalid ECG data for trial {cell_index+1}")
             # Create an empty DataFrame with the expected columns
             columns = ['segment', 'start_time', 'rmssd', 'bpm', 'sdnn', 'pnn50', 'sd1', 'sd2', 'breathingrate', 'ln_rmssd']
@@ -251,15 +242,14 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
         return None, False, subject_id  # Return the subject_id even in case of failure
 
 
-def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_subject):
+def process_all_subjects(base_dir, num_subjects, trials_per_subject):
     """
     Process all subjects and their trials, organizing by trial instead of by subject
     """
-    base_output_dir = create_folder_structure(output_base_dir)
-
     # Dictionary to collect results by trial
     trial_data = {trial: [] for trial in range(1, trials_per_subject + 1)}
-    subject_ids = {trial: [] for trial in range(1, trials_per_subject + 1)}  # Store subject IDs separately
+    # Store subject IDs separately
+    subject_ids = {trial: [] for trial in range(1, trials_per_subject + 1)}
 
     for subject in range(1, num_subjects + 1):
         subject_id = f"subject{subject:02d}"
@@ -290,49 +280,25 @@ def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_sub
             else:
                 print(f"Failed to process trial {trial_num} for {subject_id}")
 
-    # After processing all subjects, save data by trial
-    for trial_num, data_list in trial_data.items():
-        if data_list:
-            # Create trial folder
-            trial_folder = base_output_dir / f"trial{trial_num:02d}"
-            trial_folder.mkdir(exist_ok=True)
+    return trial_data, subject_ids
 
-            # Save individual subject files within the trial folder
-            for i, subject_df in enumerate(data_list):
-                if not subject_df.empty:
-                    # Get subject ID from the separate array
-                    subject_id = subject_ids[trial_num][i]
-                    output_file = trial_folder / f'ecg_{subject_id}.csv'
-                    subject_df.to_csv(output_file, index=False)
-        else:
-            print(f"No data available for trial {trial_num}")
-
-
-def get_directories():
-    """
-    Get the paths to the data directories from the command line
-    """
-    if len(sys.argv) == 3:
-        base_directory = sys.argv[1]
-        output_directory = sys.argv[2]
-    else:
-        base_directory = "../../Colemak_Data"
-        output_directory = "../../30sec_ECG_data"
-    return base_directory, output_directory
 
 
 def main():
     # Set your paths here
-    base_directory, output_directory = get_directories()
-    num_subjects = len([name for name in os.listdir(base_directory)])
+    input_directory, output_directory = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
+    num_subjects = len([name for name in os.listdir(input_directory)])
 
     # Process all subjects
-    process_all_subjects(
-        base_dir=base_directory,
-        output_base_dir=output_directory,
+    trial_data, subject_ids = process_all_subjects(
+        base_dir=input_directory,
         num_subjects=num_subjects,
         trials_per_subject=15
     )
+
+    # After processing all subjects, save data by trial
+    print(f"Saving output files into: {output_directory}")
+    save_data_to_csv(trial_data, output_directory, subject_ids, 'ecg')
 
 
 if __name__ == "__main__":

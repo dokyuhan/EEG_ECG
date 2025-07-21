@@ -6,7 +6,15 @@ from scipy import signal
 import traceback
 from pathlib import Path
 
-from common import load_mat, create_folder_structure
+from common import (get_cli_arguments,
+                    load_mat,
+                    save_data_to_csv,
+                    validate_mat_data)
+
+
+# Default values for the input and output directories
+INPUT_DIRECTORY = "../../Colemak_Data"
+OUTPUT_DIRECTORY = "../../30sec_EEG_data_hann"
 
 # Define EEG channel names
 EEG_CHANNELS = ['F3', 'Fz', 'F4', 'C3', 'Cz', 'C4', 'P3', 'POz', 'P4']
@@ -28,24 +36,6 @@ def load_eeg_data(mat_data, cell_index):
     print(f"Loaded EEG data: shape={eeg_data.shape}")
 
     return eeg_data
-
-
-def validate_eeg_data(eeg_data):
-    """
-    Validate EEG data and return whether it's valid for processing
-    """
-    if eeg_data is None or eeg_data.size == 0:
-        return False
-
-    # Check if data contains only zeros or if it's too short
-    if np.all(eeg_data == 0) or eeg_data.shape[0] < 256:
-        return False
-
-    # Check if data contains any infinite values
-    if np.any(np.isinf(eeg_data)):
-        return False
-
-    return True
 
 
 def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_freq):
@@ -189,7 +179,7 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
         eeg_data = load_eeg_data(mat_data, trial)
 
         # Skip if data is invalid
-        if not validate_eeg_data(eeg_data):
+        if not validate_mat_data(eeg_data):
             print(f"Invalid EEG data for {subject_id}, trial {trial+1}, skipping")
             return None, False, subject_id
 
@@ -215,16 +205,14 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
         return None, False, subject_id
 
 
-def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_subject, fs):
+def process_all_subjects(base_dir, num_subjects, trials_per_subject, fs):
     """
     Process all subjects and their trials for EEG data, organizing by trial
     """
-    # Create base output directory
-    base_output_dir = create_folder_structure(output_base_dir)
-
     # Dictionary to collect results by trial
     trial_data = {trial: [] for trial in range(1, trials_per_subject + 1)}
-    subject_ids = {trial: [] for trial in range(1, trials_per_subject + 1)}  # Store subject IDs separately
+    # Store subject IDs separately
+    subject_ids = {trial: [] for trial in range(1, trials_per_subject + 1)}
 
     # Process each subject
     for subject in range(1, num_subjects + 1):
@@ -256,50 +244,25 @@ def process_all_subjects(base_dir, output_base_dir, num_subjects, trials_per_sub
             else:
                 print(f"Failed to process trial {trial_num} for {subject_id}")
 
-    # After processing all subjects, save data by trial
-    for trial_num, data_list in trial_data.items():
-        if data_list:
-            # Create trial folder
-            trial_folder = base_output_dir / f"trial{trial_num:02d}"
-            trial_folder.mkdir(exist_ok=True)
-
-            # Save individual subject files within the trial folder
-            for i, subject_df in enumerate(data_list):
-                if not subject_df.empty:
-                    # Get subject ID from the separate array
-                    subject_id = subject_ids[trial_num][i]
-                    output_file = trial_folder / f'eeg_{subject_id}.csv'
-                    subject_df.to_csv(output_file, index=False)
-        else:
-            print(f"No data available for trial {trial_num}")
-
-
-def get_directories():
-    """
-    Get the paths to the data directories from the command line
-    """
-    if len(sys.argv) == 3:
-        base_directory = sys.argv[1]
-        output_directory = sys.argv[2]
-    else:
-        base_directory = "../../Colemak_Data"
-        output_directory = "../../30sec_EEG_data_hann"
-    return base_directory, output_directory
+    return trial_data, subject_ids
 
 
 def main():
     # Set your paths here
-    base_directory, output_directory = get_directories()
-    num_subjects = len([name for name in os.listdir(base_directory)])
+    input_directory, output_directory = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
+    num_subjects = len([name for name in os.listdir(input_directory)])
 
     # Process all subjects
-    process_all_subjects(
-        base_dir=base_directory,
-        output_base_dir=output_directory,
+    trial_data, subject_ids = process_all_subjects(
+        base_dir=input_directory,
         num_subjects=num_subjects,
         trials_per_subject=15,
         fs=256
     )
+
+    # After processing all subjects, save data by trial
+    print(f"Saving output files into: {output_directory}")
+    save_data_to_csv(trial_data, output_directory, subject_ids, 'eeg')
 
 
 if __name__ == "__main__":
