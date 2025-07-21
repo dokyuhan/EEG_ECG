@@ -1,5 +1,3 @@
-import os
-import sys
 import numpy as np
 import pandas as pd
 import heartpy as hp
@@ -246,10 +244,9 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject):
     """
     Process all subjects and their trials, organizing by trial instead of by subject
     """
-    # Dictionary to collect results by trial
-    trial_data = {trial: [] for trial in range(1, trials_per_subject + 1)}
-    # Store subject IDs separately
-    subject_ids = {trial: [] for trial in range(1, trials_per_subject + 1)}
+    # List with the results of all trials and subjects
+    # It should contain dictionaries with the trial, subject and data
+    results = []
 
     for subject in range(1, num_subjects + 1):
         subject_id = f"subject{subject:02d}"
@@ -265,12 +262,18 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject):
 
         # Process each trial for the subject
         for trial in range(trials_per_subject):
-            update_ecg_trial_data(mat_data, subject_id, trial, trial_data, subject_ids)
+            result = process_ecg_trial_data(mat_data, subject_id, trial)
+            results.append(result)
 
-    return trial_data, subject_ids
+    return results
 
 
-def update_ecg_trial_data(mat_data, subject_id, trial, trial_data, subject_ids):
+def process_ecg_trial_data(mat_data, subject_id, trial):
+    """
+    Function to do the processing of a single trial for a single subject
+    This function could be called in parallel for each of the trials
+    Returns a dictionary with the id of the trial, the user, and the data obtained
+    """
     trial_num = trial + 1
     results_df, success = analyze_ecg(
         mat_data=mat_data,
@@ -279,21 +282,27 @@ def update_ecg_trial_data(mat_data, subject_id, trial, trial_data, subject_ids):
         subject_id=subject_id
     )
 
-    if success and results_df is not None and not results_df.empty:
-        # Append this subject's data to the appropriate trial list
-        trial_data[trial_num].append(results_df)
-        subject_ids[trial_num].append(subject_id)  # Store the subject ID
+    if success:
+        return {'trial': trial,
+                'subject_id': subject_id,
+                'data': results_df
+                }
     else:
         print(f"Failed to process trial {trial_num} for {subject_id}")
+        return {'trial': trial,
+                'subject_id': subject_id,
+                'data': None
+                }
 
 
 def main():
-    # Set your paths here
-    input_directory, output_directory = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
-    num_subjects = len([name for name in os.listdir(input_directory)])
+    """
+    Entry function for the program
+    """
+    input_directory, output_directory, num_subjects = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
 
     # Process all subjects
-    trial_data, subject_ids = process_all_subjects(
+    results = process_all_subjects(
         base_dir=input_directory,
         num_subjects=num_subjects,
         trials_per_subject=15
@@ -301,7 +310,7 @@ def main():
 
     # After processing all subjects, save data by trial
     print(f"Saving output files into: {output_directory}")
-    save_data_to_csv(trial_data, output_directory, subject_ids, 'ecg')
+    save_data_to_csv(results, output_directory, 'ecg')
 
 
 if __name__ == "__main__":

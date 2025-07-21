@@ -1,3 +1,4 @@
+import os
 import sys
 import numpy as np
 from scipy.io import loadmat
@@ -11,10 +12,12 @@ def get_cli_arguments(default_input, default_output):
     if len(sys.argv) == 3:
         input_directory = sys.argv[1]
         output_directory = sys.argv[2]
+        num_subjects = len([name for name in os.listdir(input_directory)])
     else:
         input_directory = default_input
         output_directory = default_output
-    return input_directory, output_directory
+        num_subjects = 10
+    return input_directory, output_directory, num_subjects
 
 
 def load_mat(filepath):
@@ -53,7 +56,7 @@ def create_folder_structure(base_path):
     return base_path
 
 
-def save_data_to_csv(trial_data, output_base_dir, subject_ids, data_type):
+def save_data_to_csv(results, output_base_dir, data_type):
     """
     Store the results of processing each trial in a separate CSV file.
     Output files are named after the subject, and placed in the folder
@@ -62,19 +65,20 @@ def save_data_to_csv(trial_data, output_base_dir, subject_ids, data_type):
     # Create the required directory
     base_output_dir = create_folder_structure(output_base_dir)
     # Create the folders and files
-    for trial_num, data_list in trial_data.items():
-        if data_list:
+    for item in results:
+        data_df = item['data']
+        trial_num = item['trial'] + 1
+        subject_id = item['subject_id']
+
+    #for trial_num, data_list in trial_data.items():
+        if not data_df.empty:
             # Create trial folder
             trial_folder = base_output_dir / f"trial{trial_num:02d}"
             trial_folder.mkdir(exist_ok=True)
 
             # Save individual subject files within the trial folder
-            for i, subject_df in enumerate(data_list):
-                if not subject_df.empty:
-                    # Get subject ID from the separate array
-                    subject_id = subject_ids[trial_num][i]
-                    # Name the file according to the type of data evaluated and the subject
-                    output_file = trial_folder / f'{data_type}_{subject_id}.csv'
-                    subject_df.to_csv(output_file, index=False)
+            # Name the file according to the type of data evaluated and the subject
+            output_file = trial_folder / f'{data_type}_{subject_id}.csv'
+            data_df.to_csv(output_file, index=False)
         else:
             print(f"No data available for trial {trial_num}")
