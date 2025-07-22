@@ -4,6 +4,8 @@ from scipy import signal
 import traceback
 from pathlib import Path
 
+from joblib import Parallel, delayed
+
 from common import (get_cli_arguments,
                     load_mat,
                     save_data_to_csv,
@@ -11,8 +13,9 @@ from common import (get_cli_arguments,
 
 
 # Default values for the input and output directories
-INPUT_DIRECTORY = "../../Colemak_Data"
-OUTPUT_DIRECTORY = "../../30sec_EEG_data_hann"
+INPUT_DIRECTORY = "Colemak_Data"
+#OUTPUT_DIRECTORY = "../../30sec_EEG_data_hann"
+OUTPUT_DIRECTORY = "parallel_EEG_results"
 
 # Define EEG channel names
 EEG_CHANNELS = ['F3', 'Fz', 'F4', 'C3', 'Cz', 'C4', 'P3', 'POz', 'P4']
@@ -31,7 +34,7 @@ def load_eeg_data(mat_data, cell_index):
     # Convert to numpy array and transpose (samples x channels)
     eeg_data = np.array(eeg_data).T
 
-    print(f"Loaded EEG data: shape={eeg_data.shape}")
+    #print(f"Loaded EEG data: shape={eeg_data.shape}")
 
     return eeg_data
 
@@ -66,11 +69,13 @@ def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_f
     total_samples = len(eeg_data)
     num_segments = max(0, (total_samples - segment_samples) // step_samples + 1)
 
+    """
     print(f"Analysis parameters:")
     print(f"  - Signal duration: {total_samples/fs:.2f} seconds")
     print(f"  - Window size: {window_duration} seconds ({segment_samples} samples)")
     print(f"  - Window overlap: {overlap*100}% ({segment_samples - step_samples} samples)")
     print(f"  - Number of segments: {num_segments}")
+    """
 
     # List to store segment-wise frequency data
     all_segments_data = []
@@ -95,7 +100,7 @@ def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_f
 
         # GEF: Why divide by 2?? This converts the 30 second window to 15 second. But why not use 15 directly???
         segment_time = (start_idx + segment_samples/2) / fs  # Center time of segment
-        print(f"Processing segment {seg_idx+1}/{num_segments} (time: {segment_time:.2f}s)")
+        #print(f"Processing segment {seg_idx+1}/{num_segments} (time: {segment_time:.2f}s)")
 
         # Dictionary to store this segment's data
         segment_dict = {'segment': seg_idx + 1, 'time_sec': segment_time}
@@ -160,8 +165,8 @@ def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_f
     # Convert to DataFrame
     freq_df = pd.DataFrame(all_segments_data)
 
-    print(f"Extracted {len(freq_df)} segments with individual frequency data")
-    print(f"Frequency columns: {len([col for col in freq_df.columns if 'freq_' in col])}")
+    #print(f"Extracted {len(freq_df)} segments with individual frequency data")
+    #print(f"Frequency columns: {len([col for col in freq_df.columns if 'freq_' in col])}")
 
     return freq_df
 
@@ -191,7 +196,7 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
         )
 
         if not freq_df.empty:
-            print(f"Successfully processed {subject_id}, trial {trial+1}")
+            #print(f"Successfully processed {subject_id}, trial {trial+1}")
             return freq_df, True
         else:
             print(f"No valid frequency data for {subject_id}, trial {trial+1}, skipping")
@@ -211,25 +216,49 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject, fs):
     # It should contain dictionaries with the trial, subject and data
     results = []
 
+    # Parallel processing of all the subjects
+    # This reduces the processing time from ~40s to ~8s
+    Parallel(n_jobs=num_subjects)(delayed
+                (process_eeg_subject_data)
+                (subject, base_dir, trials_per_subject, fs, results)
+                for subject in range(1, num_subjects + 1))
+    """
     # Process each subject
     for subject in range(1, num_subjects + 1):
-        subject_id = f"subject{subject:02d}"
-        print(f"\nProcessing {subject_id}")
-
-        # Process file
-        file_path = Path(base_dir) / f"{subject_id}.mat"
-        if not file_path.exists():
-            print(f"File not found: {file_path}")
-            continue
-
-        mat_data = load_mat(file_path)
-
-        # Process each trial for the subject
-        for trial in range(trials_per_subject):
-            result = process_eeg_trial_data(mat_data, subject_id, trial, fs)
-            results.append(result)
+        process_eeg_subject_data(subject, base_dir, trials_per_subject, fs, results)
+    """
 
     return results
+
+
+def process_eeg_subject_data(subject, base_dir, trials_per_subject, fs, results):
+    """
+    Process all the trials for a single subject
+    The results are added into the list 'results' received as an argument
+    """
+    subject_id = f"subject{subject:02d}"
+    print(f"\nProcessing {subject_id}")
+
+    # Process file
+    file_path = Path(base_dir) / f"{subject_id}.mat"
+    if not file_path.exists():
+        print(f"File not found: {file_path}")
+        return
+
+    mat_data = load_mat(file_path)
+
+    """
+    # Parallel processing of all the trials
+    # NOTE: Makes the program slower than before
+    results = Parallel(n_jobs=trials_per_subject)(delayed
+                (process_eeg_trial_data)
+                (mat_data, subject_id, trial, fs)
+                for trial in range(trials_per_subject))
+    """
+    # Process each trial for the subject
+    for trial in range(trials_per_subject):
+        result = process_eeg_trial_data(mat_data, subject_id, trial, fs)
+        results.append(result)
 
 
 def process_eeg_trial_data(mat_data, subject_id, trial, fs):
@@ -274,7 +303,7 @@ def main():
     )
 
     # After processing all subjects, save data by trial
-    print(f"Saving output files into: {output_directory}")
+    #print(f"Saving output files into: {output_directory}")
     save_data_to_csv(results, output_directory, 'eeg')
 
 

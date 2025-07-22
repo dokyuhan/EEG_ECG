@@ -4,6 +4,8 @@ import heartpy as hp
 import traceback
 from pathlib import Path
 
+from joblib import Parallel, delayed
+
 from common import (get_cli_arguments,
                     load_mat,
                     save_data_to_csv,
@@ -11,20 +13,9 @@ from common import (get_cli_arguments,
 
 
 # Default values for the input and output directories
-INPUT_DIRECTORY = "../../Colemak_Data"
-OUTPUT_DIRECTORY = "../../30sec_ECG_data"
-
-
-#from joblib import Parallel, delayed
-    #results = Parallel(n_jobs=num_threads)(delayed(sum_primes_segment)(start, end) for start, end in zip(starts, ends))
-
-# GEF: Should create another file with the common functions used in EEG ECG.
-# This will avoid code duplication and make the codebase simpler
-# - create_folder_structure
-# - validate data
-# - load mat file
-# - select desired sample
-# - configure sampling windows
+INPUT_DIRECTORY = "Colemak_Data"
+#OUTPUT_DIRECTORY = "../../30sec_ECG_data"
+OUTPUT_DIRECTORY = "parallel_ECG_results"
 
 # GEF: Speeding up
 # Can launch a thread per subject. This way each thread only deals with one input file
@@ -141,6 +132,7 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
         total_duration_seconds = total_samples / sampling_rate
         total_duration_minutes = total_duration_seconds / 60
 
+        """
         print(f"\nSignal Duration Information:")
         print(f"Total samples: {total_samples}")
         print(f"Duration in seconds: {total_duration_seconds:.2f} seconds")
@@ -149,6 +141,7 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
 
         # Process the signal using HeartPy's segmentwise processing
         print("\nProcessing signal with HeartPy...")
+        """
         segment_width = 15 # seconds
         segment_overlap = 0.5
 
@@ -172,15 +165,13 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
                                                             segment_overlap=segment_overlap,
                                                             calc_freq=False)
 
-                print(f"\nSuccessfully processed signal")
-
                 # Compute segment start times to ensure full coverage of the signal
                 segment_times = np.arange(0, total_duration_seconds - segment_width + 1,
                                         segment_width * (1 - segment_overlap))
 
                 # Get the number of segments from this method
                 n_segments = len(segment_times)
-                print(f"Number of segments: {n_segments}")
+                # print(f"Number of segments: {n_segments}")
 
                 # Create list to store segment data
                 segment_data = []
@@ -220,9 +211,9 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
                 results_df.loc[mask, 'ln_rmssd'] = np.log(results_df.loc[mask, 'rmssd'])
 
                 # Print summary statistics
-                print("\nSummary Statistics (after interpolation):")
-                stats = results_df.describe()
-                print(stats.round(2))
+                # print("\nSummary Statistics (after interpolation):")
+                # stats = results_df.describe()
+                # print(stats.round(2))
 
             except Exception as e:
                 print(f"Error in signal processing: {str(e)}")
@@ -248,24 +239,58 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject):
     # It should contain dictionaries with the trial, subject and data
     results = []
 
+    # Parallel processing of all the subjects
+    # This reduces the processing time from ~66s to ~13s
+    Parallel(n_jobs=num_subjects)(delayed
+                (process_ecg_subject_data)
+                (subject, base_dir, trials_per_subject, results)
+                for subject in range(1, num_subjects + 1))
+    """
+    # Processing sequentially
     for subject in range(1, num_subjects + 1):
-        subject_id = f"subject{subject:02d}"
-        print(f"\nProcessing {subject_id}")
+        process_ecg_subject_data(subject, base_dir, trials_per_subject, results)
+    """
 
-        # Process file
-        file_path = Path(base_dir) / f"{subject_id}.mat"
-        if not file_path.exists():
-            print(f"File not found: {file_path}")
-            continue
-
-        mat_data = load_mat(file_path)
-
-        # Process each trial for the subject
-        for trial in range(trials_per_subject):
-            result = process_ecg_trial_data(mat_data, subject_id, trial)
-            results.append(result)
+    """
+    # WIP: Single subject
+    process_ecg_subject_data(1, base_dir, trials_per_subject, results)
+    """
 
     return results
+
+
+def process_ecg_subject_data(subject, base_dir, trials_per_subject, results):
+    subject_id = f"subject{subject:02d}"
+    print(f"\nProcessing {subject_id}")
+
+    # Process file
+    file_path = Path(base_dir) / f"{subject_id}.mat"
+    if not file_path.exists():
+        print(f"File not found: {file_path}")
+        return
+
+    mat_data = load_mat(file_path)
+
+    """
+    # Parallel processing of all the trials
+    # NOTE: Makes the program slower than before
+    results = Parallel(n_jobs=trials_per_subject)(delayed
+                        (process_ecg_trial_data)
+                        (mat_data, subject_id, trial)
+                        for trial in range(trials_per_subject))
+    """
+    # Process each trial for the subject
+    for trial in range(trials_per_subject):
+        result = process_ecg_trial_data(mat_data, subject_id, trial)
+        results.append(result)
+
+    """
+    # WIP: Single trial
+    result = process_ecg_trial_data(mat_data, subject_id, 9)
+    #result = process_ecg_trial_data(mat_data, subject_id, 10)
+    results.append(result)
+    """
+
 
 
 def process_ecg_trial_data(mat_data, subject_id, trial):
@@ -309,7 +334,7 @@ def main():
     )
 
     # After processing all subjects, save data by trial
-    print(f"Saving output files into: {output_directory}")
+    #print(f"Saving output files into: {output_directory}")
     save_data_to_csv(results, output_directory, 'ecg')
 
 
