@@ -15,7 +15,7 @@ from common import (get_cli_arguments,
 # Default values for the input and output directories
 INPUT_DIRECTORY = "Colemak_Data"
 #OUTPUT_DIRECTORY = "../../30sec_ECG_data"
-OUTPUT_DIRECTORY = "parallel_ECG_results"
+OUTPUT_DIRECTORY = "ECG_results"
 
 # GEF: Speeding up
 # Can launch a thread per subject. This way each thread only deals with one input file
@@ -239,20 +239,30 @@ def process_all_subjects(window_size, base_dir, num_subjects, trials_per_subject
     """
     Process all subjects and their trials, organizing by trial instead of by subject
     """
-    # List with the results of all trials and subjects
-    # It should contain dictionaries with the trial, subject and data
-    results = []
 
     # Parallel processing of all the subjects
     # This reduces the processing time from ~66s to ~13s
-    Parallel(n_jobs=num_subjects)(delayed
+    results = Parallel(n_jobs=num_subjects)(delayed
                 (process_ecg_subject_data)
-                (window_size, subject, base_dir, trials_per_subject, results)
+                (window_size, subject, base_dir, trials_per_subject, [])
                 for subject in range(1, num_subjects + 1))
+
+    flat_results = [ trial
+                     for subject_list in results
+                     for trial in subject_list
+                   ]
+
+    print(f"FINAL Results: {len(flat_results)}")
+    return flat_results
+
     """
+    # List with the results of all trials and subjects
+    # It should contain dictionaries with the trial, subject and data
+    results = []
     # Processing sequentially
     for subject in range(1, num_subjects + 1):
         process_ecg_subject_data(window_size, subject, base_dir, trials_per_subject, results)
+    return results
     """
 
     """
@@ -260,8 +270,6 @@ def process_all_subjects(window_size, base_dir, num_subjects, trials_per_subject
     # Tests to identify the errors in heartpy
     process_ecg_subject_data(window_size, 1, base_dir, trials_per_subject, results)
     """
-
-    return results
 
 
 def process_ecg_subject_data(window_size, subject, base_dir, trials_per_subject, results):
@@ -276,6 +284,7 @@ def process_ecg_subject_data(window_size, subject, base_dir, trials_per_subject,
 
     mat_data = load_mat(file_path)
 
+    """
     # Parallel processing of all the trials
     # NOTE: Makes the program slower than before
     results = Parallel(n_jobs=trials_per_subject)(delayed
@@ -287,7 +296,8 @@ def process_ecg_subject_data(window_size, subject, base_dir, trials_per_subject,
     for trial in range(trials_per_subject):
         result = process_ecg_trial_data(window_size, mat_data, subject_id, trial)
         results.append(result)
-    """
+
+    return results
 
     """
     # WIP: Single trial
@@ -340,7 +350,7 @@ def main():
     )
 
     # After processing all subjects, save data by trial
-    final_output_dir = f'{window_size}s_{output_directory}'
+    final_output_dir = f'parallel_{window_size}s_{output_directory}'
     print(f"Saving output files into: {final_output_dir}")
     save_data_to_csv(results, final_output_dir, 'ecg')
 

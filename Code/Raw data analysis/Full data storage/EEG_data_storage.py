@@ -15,7 +15,7 @@ from common import (get_cli_arguments,
 # Default values for the input and output directories
 INPUT_DIRECTORY = "Colemak_Data"
 #OUTPUT_DIRECTORY = "../../30sec_EEG_data_hann"
-OUTPUT_DIRECTORY = "parallel_EEG_results"
+OUTPUT_DIRECTORY = "EEG_results"
 
 # Define EEG channel names
 EEG_CHANNELS = ['F3', 'Fz', 'F4', 'C3', 'Cz', 'C4', 'P3', 'POz', 'P4']
@@ -212,25 +212,31 @@ def process_all_subjects(window_size, base_dir, num_subjects, trials_per_subject
     """
     Process all subjects and their trials for EEG data, organizing by trial
     """
-    # List with the results of all trials and subjects
-    # It should contain dictionaries with the trial, subject and data
-    results = []
 
     # Parallel processing of all the subjects
     # This reduces the processing time from ~40s to ~8s
-    Parallel(n_jobs=num_subjects)(delayed
+    results = Parallel(n_jobs=num_subjects)(delayed
                 (process_eeg_subject_data)
-                (window_size, subject, base_dir, trials_per_subject, fs, results)
+                (window_size, subject, base_dir, trials_per_subject, fs, [])
                 for subject in range(1, num_subjects + 1))
+
+    flat_results = [ trial
+                     for subject_list in results
+                     for trial in subject_list
+                   ]
+
+    print(f"FINAL Results: {len(flat_results)}")
+    return flat_results
+
     """
+    # List with the results of all trials and subjects
+    # It should contain dictionaries with the trial, subject and data
+    results = []
     # Process each subject
     for subject in range(1, num_subjects + 1):
         process_eeg_subject_data(window_size, subject, base_dir, trials_per_subject, fs, results)
-    """
-
-    print(f"FINAL Results: {len(results)}")
-
     return results
+    """
 
 
 def process_eeg_subject_data(window_size, subject, base_dir, trials_per_subject, fs, results):
@@ -262,7 +268,7 @@ def process_eeg_subject_data(window_size, subject, base_dir, trials_per_subject,
         result = process_eeg_trial_data(window_size, mat_data, subject_id, trial, fs)
         results.append(result)
 
-    print(f"Partial Results: {len(results)}")
+    return results
 
 
 def process_eeg_trial_data(window_size, mat_data, subject_id, trial, fs):
@@ -309,9 +315,9 @@ def main():
     )
 
     # After processing all subjects, save data by trial
-    final_output_dir = f'{window_size}s_{output_directory}'
+    final_output_dir = f'parallel_{window_size}s_{output_directory}'
     print(f"Saving output files into: {final_output_dir}")
-    save_data_to_csv(results, final_output_dir, 'ecg')
+    save_data_to_csv(results, final_output_dir, 'eeg')
 
 
 if __name__ == "__main__":
