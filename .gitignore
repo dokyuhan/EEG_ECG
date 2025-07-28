@@ -19,8 +19,7 @@ Colemak_Data
 30sec_ECG_data
 30sec_EEG_data_hann
 subject_results_csv
-parallel_ECG_results
-parallel_EEG_results
+parallel_*_results
 
 
 # Python library folders
