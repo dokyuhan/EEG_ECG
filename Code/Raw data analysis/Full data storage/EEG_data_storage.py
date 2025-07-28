@@ -171,7 +171,7 @@ def extract_individual_frequencies(eeg_data, fs, window_duration, overlap, max_f
     return freq_df
 
 
-def process_subject_trial(mat_data, subject_id, trial, fs):
+def process_subject_trial(window_size, mat_data, subject_id, trial, fs):
     """
     Process a single subject/trial and return its frequency data
     """
@@ -190,7 +190,7 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
         freq_df = extract_individual_frequencies(
             eeg_data=eeg_data,
             fs=fs,
-            window_duration=15,  # seconds
+            window_duration=window_size,  # seconds
             overlap=0.5,         # 50% overlap
             max_freq=50          # Maximum frequency to include
         )
@@ -208,7 +208,7 @@ def process_subject_trial(mat_data, subject_id, trial, fs):
         return None, False
 
 
-def process_all_subjects(base_dir, num_subjects, trials_per_subject, fs):
+def process_all_subjects(window_size, base_dir, num_subjects, trials_per_subject, fs):
     """
     Process all subjects and their trials for EEG data, organizing by trial
     """
@@ -220,18 +220,20 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject, fs):
     # This reduces the processing time from ~40s to ~8s
     Parallel(n_jobs=num_subjects)(delayed
                 (process_eeg_subject_data)
-                (subject, base_dir, trials_per_subject, fs, results)
+                (window_size, subject, base_dir, trials_per_subject, fs, results)
                 for subject in range(1, num_subjects + 1))
     """
     # Process each subject
     for subject in range(1, num_subjects + 1):
-        process_eeg_subject_data(subject, base_dir, trials_per_subject, fs, results)
+        process_eeg_subject_data(window_size, subject, base_dir, trials_per_subject, fs, results)
     """
+
+    print(f"FINAL Results: {len(results)}")
 
     return results
 
 
-def process_eeg_subject_data(subject, base_dir, trials_per_subject, fs, results):
+def process_eeg_subject_data(window_size, subject, base_dir, trials_per_subject, fs, results):
     """
     Process all the trials for a single subject
     The results are added into the list 'results' received as an argument
@@ -252,16 +254,18 @@ def process_eeg_subject_data(subject, base_dir, trials_per_subject, fs, results)
     # NOTE: Makes the program slower than before
     results = Parallel(n_jobs=trials_per_subject)(delayed
                 (process_eeg_trial_data)
-                (mat_data, subject_id, trial, fs)
+                (window_size, mat_data, subject_id, trial, fs)
                 for trial in range(trials_per_subject))
     """
     # Process each trial for the subject
     for trial in range(trials_per_subject):
-        result = process_eeg_trial_data(mat_data, subject_id, trial, fs)
+        result = process_eeg_trial_data(window_size, mat_data, subject_id, trial, fs)
         results.append(result)
 
+    print(f"Partial Results: {len(results)}")
 
-def process_eeg_trial_data(mat_data, subject_id, trial, fs):
+
+def process_eeg_trial_data(window_size, mat_data, subject_id, trial, fs):
     """
     Function to do the processing of a single trial for a single subject
     This function could be called in parallel for each of the trials
@@ -269,6 +273,7 @@ def process_eeg_trial_data(mat_data, subject_id, trial, fs):
     """
     trial_num = trial + 1
     freq_df, success = process_subject_trial(
+        window_size=window_size,
         mat_data=mat_data,
         subject_id=subject_id,
         trial=trial,
@@ -292,10 +297,11 @@ def main():
     """
     Entry function for the program
     """
-    input_directory, output_directory, num_subjects = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
+    window_size, input_directory, output_directory, num_subjects = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
 
     # Process all subjects
     results = process_all_subjects(
+        window_size=window_size,
         base_dir=input_directory,
         num_subjects=num_subjects,
         trials_per_subject=15,
@@ -303,8 +309,9 @@ def main():
     )
 
     # After processing all subjects, save data by trial
-    #print(f"Saving output files into: {output_directory}")
-    save_data_to_csv(results, output_directory, 'eeg')
+    final_output_dir = f'{window_size}s_{output_directory}'
+    print(f"Saving output files into: {final_output_dir}")
+    save_data_to_csv(results, final_output_dir, 'ecg')
 
 
 if __name__ == "__main__":

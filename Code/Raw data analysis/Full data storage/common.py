@@ -9,15 +9,22 @@ def get_cli_arguments(default_input, default_output):
     """
     Get the paths to the data directories from the command line
     """
-    if len(sys.argv) == 3:
+    nargs = len(sys.argv)
+
+    # Default argument values
+    window_size = 30 # seconds
+    input_directory = default_input
+    output_directory = default_output
+    num_subjects = 10
+
+    if nargs == 2:
+        window_size = int(sys.argv[1])
+    elif nargs == 4:
+        window_size = int(sys.argv[1])
         input_directory = sys.argv[1]
         output_directory = sys.argv[2]
         num_subjects = len([name for name in os.listdir(input_directory)])
-    else:
-        input_directory = default_input
-        output_directory = default_output
-        num_subjects = 10
-    return input_directory, output_directory, num_subjects
+    return window_size, input_directory, output_directory, num_subjects
 
 
 def load_mat(filepath):
@@ -62,6 +69,7 @@ def save_data_to_csv(results, output_base_dir, data_type):
     Output files are named after the subject, and placed in the folder
     corresponding to the trial.
     """
+    print(f"WHAT IS GOING ON??? {len(results)}")
     # Create the required directory
     base_output_dir = create_folder_structure(output_base_dir)
     # Create the folders and files

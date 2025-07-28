@@ -118,10 +118,12 @@ def interpolate_missing_values(df, features):
     return result_df
 
 
-def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
+def analyze_ecg(window_size, mat_data, sampling_rate, cell_index, subject_id):
     """
     Analyze ECG data using HeartPy library
     """
+    # GEF: Should be more specific when catching exceptions to better determine what is going wrong
+    #      avoid:  except Exception
     try:
         print(f"Processing {subject_id}, trial {cell_index+1}...")
 
@@ -130,9 +132,9 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
         # Display signal information
         total_samples = len(ecg_data)
         total_duration_seconds = total_samples / sampling_rate
+        """
         total_duration_minutes = total_duration_seconds / 60
 
-        """
         print(f"\nSignal Duration Information:")
         print(f"Total samples: {total_samples}")
         print(f"Duration in seconds: {total_duration_seconds:.2f} seconds")
@@ -142,14 +144,16 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
         # Process the signal using HeartPy's segmentwise processing
         print("\nProcessing signal with HeartPy...")
         """
-        segment_width = 15 # seconds
+        segment_width = window_size # seconds
         segment_overlap = 0.5
 
         # GEF: I am getting an message: UserWarning.  This seems to come from heartpy
         # Does this affect the results?
 
-        # GEF: Should be more specific when catching exceptions to better determine what is going wrong
-        #      avoid:  except Exception
+        # GEF: Trying to avoid empty segments. DID NOT WORK
+        # print(f"INITIAL SIZE: {ecg_data.shape}")
+        # ecg_data = ecg_data[:total_samples // sampling_rate * sampling_rate]
+        # print(f"NEW SIZE: {ecg_data.shape}")
 
         # Validate ECG data before processing
         if not validate_mat_data(ecg_data):
@@ -163,6 +167,7 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
                                                             sample_rate=sampling_rate,
                                                             segment_width=segment_width,
                                                             segment_overlap=segment_overlap,
+                                                            #segment_min_size=5,    # GEF:Trying to avoid errors. DID NOT WORK
                                                             calc_freq=False)
 
                 # Compute segment start times to ensure full coverage of the signal
@@ -230,8 +235,7 @@ def analyze_ecg(mat_data, sampling_rate, cell_index, subject_id):
         traceback.print_exc()
         return None, False
 
-
-def process_all_subjects(base_dir, num_subjects, trials_per_subject):
+def process_all_subjects(window_size, base_dir, num_subjects, trials_per_subject):
     """
     Process all subjects and their trials, organizing by trial instead of by subject
     """
@@ -243,23 +247,24 @@ def process_all_subjects(base_dir, num_subjects, trials_per_subject):
     # This reduces the processing time from ~66s to ~13s
     Parallel(n_jobs=num_subjects)(delayed
                 (process_ecg_subject_data)
-                (subject, base_dir, trials_per_subject, results)
+                (window_size, subject, base_dir, trials_per_subject, results)
                 for subject in range(1, num_subjects + 1))
     """
     # Processing sequentially
     for subject in range(1, num_subjects + 1):
-        process_ecg_subject_data(subject, base_dir, trials_per_subject, results)
+        process_ecg_subject_data(window_size, subject, base_dir, trials_per_subject, results)
     """
 
     """
     # WIP: Single subject
-    process_ecg_subject_data(1, base_dir, trials_per_subject, results)
+    # Tests to identify the errors in heartpy
+    process_ecg_subject_data(window_size, 1, base_dir, trials_per_subject, results)
     """
 
     return results
 
 
-def process_ecg_subject_data(subject, base_dir, trials_per_subject, results):
+def process_ecg_subject_data(window_size, subject, base_dir, trials_per_subject, results):
     subject_id = f"subject{subject:02d}"
     print(f"\nProcessing {subject_id}")
 
@@ -271,29 +276,28 @@ def process_ecg_subject_data(subject, base_dir, trials_per_subject, results):
 
     mat_data = load_mat(file_path)
 
-    """
     # Parallel processing of all the trials
     # NOTE: Makes the program slower than before
     results = Parallel(n_jobs=trials_per_subject)(delayed
                         (process_ecg_trial_data)
-                        (mat_data, subject_id, trial)
+                        (window_size, mat_data, subject_id, trial)
                         for trial in range(trials_per_subject))
     """
     # Process each trial for the subject
     for trial in range(trials_per_subject):
-        result = process_ecg_trial_data(mat_data, subject_id, trial)
+        result = process_ecg_trial_data(window_size, mat_data, subject_id, trial)
         results.append(result)
+    """
 
     """
     # WIP: Single trial
-    result = process_ecg_trial_data(mat_data, subject_id, 9)
-    #result = process_ecg_trial_data(mat_data, subject_id, 10)
+    result = process_ecg_trial_data(window_size, mat_data, subject_id, 9)
+    #result = process_ecg_trial_data(window_size, mat_data, subject_id, 10)
     results.append(result)
     """
 
 
-
-def process_ecg_trial_data(mat_data, subject_id, trial):
+def process_ecg_trial_data(window_size, mat_data, subject_id, trial):
     """
     Function to do the processing of a single trial for a single subject
     This function could be called in parallel for each of the trials
@@ -301,6 +305,7 @@ def process_ecg_trial_data(mat_data, subject_id, trial):
     """
     trial_num = trial + 1
     results_df, success = analyze_ecg(
+        window_size=window_size,
         mat_data=mat_data,
         sampling_rate=256,
         cell_index=trial,
@@ -324,18 +329,20 @@ def main():
     """
     Entry function for the program
     """
-    input_directory, output_directory, num_subjects = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
+    window_size, input_directory, output_directory, num_subjects = get_cli_arguments(INPUT_DIRECTORY, OUTPUT_DIRECTORY)
 
     # Process all subjects
     results = process_all_subjects(
+        window_size=window_size,
         base_dir=input_directory,
         num_subjects=num_subjects,
         trials_per_subject=15
     )
 
     # After processing all subjects, save data by trial
-    #print(f"Saving output files into: {output_directory}")
-    save_data_to_csv(results, output_directory, 'ecg')
+    final_output_dir = f'{window_size}s_{output_directory}'
+    print(f"Saving output files into: {final_output_dir}")
+    save_data_to_csv(results, final_output_dir, 'ecg')
 
 
 if __name__ == "__main__":
