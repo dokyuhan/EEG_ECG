@@ -1,12 +1,12 @@
+import os
+import glob
 import numpy as np
 import pandas as pd
 from scipy import stats
-import os
-import glob
 from sklearn.preprocessing import StandardScaler
+from sklearn.cross_decomposition import CCA
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
-from sklearn.cross_decomposition import CCA
 
 def load_subject_data(subject_id, eeg_path_pattern, ecg_path_pattern, ecg_value):
     """
@@ -60,7 +60,9 @@ def load_subject_data(subject_id, eeg_path_pattern, ecg_path_pattern, ecg_value)
 
     # Identify and filter out rows with empty ECG values
     # Check for NaN, empty string, or other missing value indicators
-    valid_rows = ~(ecg_df[ecg_value].isna() | (ecg_df[ecg_value] == '') | (ecg_df[ecg_value].astype(str) == 'nan'))
+    valid_rows = ~(ecg_df[ecg_value].isna() |
+                  (ecg_df[ecg_value] == '') |
+                  (ecg_df[ecg_value].astype(str) == 'nan'))
 
     # Apply the filter to both EEG and ECG data to keep them aligned
     #filtered_eeg_data = eeg_data[valid_rows]
@@ -353,7 +355,7 @@ def main():
     print("=== Pooled Subject CCA Analysis: EEG-ECG Data ===")
 
     # Configuration
-    num_subjects = 9
+    num_subjects = 10
     # ECG value to analyse
     ecg_v = 'rmssd'
     # Trial number
@@ -361,8 +363,8 @@ def main():
     # File path patterns - update these to match your file naming convention
 
     # The data should be matching the same size as both EEG and ECG data
-    eeg_path_pattern = "30sec_EEG_data_hann/trial15/eeg_subject{:02d}.csv"
-    ecg_path_pattern = "30sec_ECG_data/trial15/ecg_subject{:02d}.csv"
+    eeg_path_pattern = "30sec_EEG_data_hann/trial10/eeg_subject{:02d}.csv"
+    ecg_path_pattern = "30sec_ECG_data/trial10/ecg_subject{:02d}.csv"
     #eeg_path_pattern = "{Path to the EEG .csv files}"
     #ecg_path_pattern = "{Path to the ECG .csv files}"
 
